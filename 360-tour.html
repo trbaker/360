@@ -135,11 +135,19 @@
   #popup.open{display:flex}
   #popup .ptext{font-size:14px;line-height:1.45;word-break:break-word}
   #popup .ptext.empty{color:var(--ink-dim);font-style:italic}
-  #popup input[type=text],#popup select{
+  #popup input[type=text],#popup select,#popup textarea{
     width:100%;background:rgba(255,255,255,.07);border:1px solid var(--panel-edge);
     border-radius:8px;color:var(--ink);font:13px var(--font-ui);padding:9px 10px;outline:none;
   }
-  #popup input[type=text]:focus,#popup select:focus{border-color:var(--accent)}
+  #popup textarea{resize:none;line-height:1.45;font-size:13px}
+  #popup input[type=text]:focus,#popup select:focus,#popup textarea:focus{border-color:var(--accent)}
+  .labelRow{display:flex;justify-content:space-between;align-items:baseline}
+  #descCount{font:600 10px var(--font-data);color:var(--ink-dim)}
+  #descCount.limit{color:var(--danger)}
+  #popup .pdesc{
+    font-size:13px;line-height:1.5;color:var(--ink-dim);word-break:break-word;
+    white-space:pre-wrap;border-left:2px solid rgba(255,200,87,.4);padding-left:9px;
+  }
   #popup select option{background:#161a21;color:var(--ink)}
   #popup label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
   #popup .row{display:flex;gap:8px;justify-content:flex-end;align-items:center}
@@ -264,6 +272,7 @@
   <!-- view mode -->
   <div id="pView" style="display:none;flex-direction:column;gap:10px">
     <div class="ptext" id="pText"></div>
+    <div class="pdesc" id="pDesc" style="display:none"></div>
     <button id="goBtn" style="display:none"></button>
     <div class="row">
       <span class="spacer"></span>
@@ -276,6 +285,14 @@
     <div>
       <label for="mText">Marker text</label>
       <input type="text" id="mText" maxlength="140" placeholder="e.g. Through this door → kitchen">
+    </div>
+    <div>
+      <div class="labelRow">
+        <label for="mDesc">Description</label>
+        <span id="descCount">0/200</span>
+      </div>
+      <textarea id="mDesc" rows="3" maxlength="200"
+        placeholder="Optional — up to 200 characters of detail shown when the marker is opened."></textarea>
     </div>
     <div>
       <label for="mLink">Links to scene</label>
@@ -419,7 +436,7 @@
         const mk = {
           x: THREE.MathUtils.radToDeg(Math.atan2(p.z, p.x)),
           y: 90 - THREE.MathUtils.radToDeg(Math.acos(p.y / r)),
-          t: '', g: null
+          t: '', d: '', g: null
         };
         tour.s[cur].m.push(mk);
         setPlacing(false);
@@ -485,8 +502,25 @@
   }
 
   /* ================= popup (view/edit) ================= */
-  const pText = $('pText'), goBtn = $('goBtn');
-  const mText = $('mText'), mLink = $('mLink');
+  const pText = $('pText'), pDesc = $('pDesc'), goBtn = $('goBtn');
+  const mText = $('mText'), mDesc = $('mDesc'), mLink = $('mLink'), descCount = $('descCount');
+
+  /* description: web-safe + hard 200-char cap.
+     Strips control chars (keeps newlines), collapses runs of blank lines,
+     escapes on output via textContent/escapeHtml. */
+  function cleanDesc(s){
+    return String(s || '')
+      .replace(/[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+      .slice(0, 200);
+  }
+  function updateDescCount(){
+    const len = cleanDesc(mDesc.value).length;
+    descCount.textContent = len + '/200';
+    descCount.classList.toggle('limit', len >= 200);
+  }
+  mDesc.addEventListener('input', updateDescCount);
 
   function openPopup(mk, editMode){
     activeMarker = mk;
@@ -495,6 +529,8 @@
     pEdit.style.display = editMode ? 'flex' : 'none';
     if(editMode){
       mText.value = mk.t || '';
+      mDesc.value = mk.d || '';
+      updateDescCount();
       mLink.innerHTML = '<option value="">No link</option>' +
         tour.s.map((s,i)=> i===cur ? '' :
           `<option value="${i}" ${mk.g===i?'selected':''}>${escapeHtml(sceneName(i))}</option>`).join('');
@@ -502,6 +538,8 @@
     } else {
       pText.textContent = mk.t || 'Untitled marker';
       pText.classList.toggle('empty', !mk.t);
+      if(mk.d){ pDesc.textContent = mk.d; pDesc.style.display = ''; }
+      else pDesc.style.display = 'none';
       if(mk.g != null && tour.s[mk.g]){
         goBtn.style.display = '';
         goBtn.textContent = 'Go to ' + sceneName(mk.g);
@@ -527,7 +565,7 @@
   $('pCloseBtn').addEventListener('click', closePopup);
   $('mCancelBtn').addEventListener('click', ()=>{
     // brand-new empty marker cancelled → remove it
-    if(activeMarker && !activeMarker.t && activeMarker.g == null){
+    if(activeMarker && !activeMarker.t && !activeMarker.d && activeMarker.g == null){
       const arr = tour.s[cur].m, i = arr.indexOf(activeMarker);
       if(i > -1) arr.splice(i,1);
       rebuildMarkers();
@@ -537,6 +575,7 @@
   $('mSaveBtn').addEventListener('click', ()=>{
     if(!activeMarker) return;
     activeMarker.t = mText.value.trim();
+    activeMarker.d = cleanDesc(mDesc.value);
     activeMarker.g = mLink.value === '' ? null : +mLink.value;
     rebuildMarkers();
     closePopup();
@@ -780,7 +819,7 @@
         const d = JSON.parse(LZString.decompressFromEncodedURIComponent(h[1]));
         if(d && Array.isArray(d.s) && d.s.length){
           tour.s = d.s.map(s=>({u:String(s.u||''), n:String(s.n||''), m:Array.isArray(s.m) ? s.m.map(m=>({
-            x:+m.x||0, y:+m.y||0, t:String(m.t||''), g:(m.g==null?null:+m.g)
+            x:+m.x||0, y:+m.y||0, t:String(m.t||'').slice(0,140), d:cleanDesc(m.d), g:(m.g==null?null:+m.g)
           })) : []}));
           refreshPanel();
           loadScene(Math.min(+d.a||0, tour.s.length-1));
