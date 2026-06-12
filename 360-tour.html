@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Orbit — 360° Tour Builder</title>
+<style>
+  :root{
+    --ink:#eef1f4;
+    --ink-dim:#9aa3ad;
+    --panel:rgba(16,19,24,.78);
+    --panel-edge:rgba(255,255,255,.08);
+    --accent:#ffc857;
+    --danger:#ff6b6b;
+    --radius:14px;
+    --font-ui:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+    --font-data:"SF Mono","Cascadia Mono",ui-monospace,Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#0a0c0f;color:var(--ink);font-family:var(--font-ui)}
+  #stage{position:fixed;inset:0;cursor:grab}
+  #stage.dragging{cursor:grabbing}
+  #stage.placing{cursor:crosshair}
+
+  /* ---------- top control bar ---------- */
+  .bar{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);
+    width:min(720px,calc(100% - 24px));
+    display:flex;gap:8px;align-items:center;
+    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--panel-edge);border-radius:var(--radius);
+    padding:8px;z-index:30;transition:opacity .35s ease, transform .35s ease;
+  }
+  .bar.hidden{opacity:0;transform:translateX(-50%) translateY(-8px);pointer-events:none}
+  .brand{display:flex;align-items:center;gap:7px;padding:0 6px 0 8px;
+    font-weight:600;letter-spacing:.04em;font-size:14px;white-space:nowrap;user-select:none}
+  #urlInput{
+    flex:1;min-width:0;background:rgba(255,255,255,.06);
+    border:1px solid transparent;border-radius:9px;
+    color:var(--ink);font:13px/1 var(--font-data);
+    padding:10px 12px;outline:none;transition:border-color .15s;
+  }
+  #urlInput::placeholder{color:var(--ink-dim);font-family:var(--font-ui)}
+  #urlInput:focus{border-color:var(--accent)}
+  button{
+    border:0;border-radius:9px;padding:10px 14px;font:600 13px var(--font-ui);
+    cursor:pointer;color:#10131a;background:var(--ink);transition:transform .1s, background .15s;
+    white-space:nowrap;
+  }
+  button:hover{background:#fff}
+  button:active{transform:scale(.96)}
+  button.ghost{background:rgba(255,255,255,.08);color:var(--ink)}
+  button.ghost:hover{background:rgba(255,255,255,.16)}
+  button.warn{background:transparent;color:var(--danger);padding:8px 10px}
+  button:focus-visible,#urlInput:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---------- tour panel ---------- */
+  #tourToggle{
+    position:fixed;left:14px;bottom:14px;z-index:30;
+    background:var(--panel);color:var(--ink);border:1px solid var(--panel-edge);
+    backdrop-filter:blur(14px);border-radius:999px;padding:9px 16px;
+    display:flex;align-items:center;gap:7px;font-size:13px;
+    transition:opacity .35s ease;
+  }
+  #tourToggle .count{font:600 11px var(--font-data);color:var(--accent)}
+  #tourPanel{
+    position:fixed;left:14px;bottom:60px;z-index:30;
+    width:min(300px,calc(100% - 28px));
+    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--panel-edge);border-radius:var(--radius);
+    padding:12px;display:none;flex-direction:column;gap:10px;
+    max-height:min(46vh,420px);
+  }
+  #tourPanel.open{display:flex}
+  #tourPanel h2{font-size:11px;letter-spacing:.14em;color:var(--ink-dim);font-weight:600;text-transform:uppercase}
+  #sceneList{list-style:none;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0}
+  #sceneList li{
+    display:flex;align-items:center;gap:6px;border-radius:9px;padding:7px 8px;
+    background:rgba(255,255,255,.04);font-size:13px;cursor:pointer;
+  }
+  #sceneList li:hover{background:rgba(255,255,255,.09)}
+  #sceneList li.active{background:rgba(255,200,87,.14);box-shadow:inset 0 0 0 1px rgba(255,200,87,.35)}
+  #sceneList .num{font:600 10px var(--font-data);color:var(--ink-dim);min-width:14px}
+  #sceneList li.active .num{color:var(--accent)}
+  #sceneList .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #sceneList .nm input{
+    width:100%;background:rgba(255,255,255,.08);border:1px solid var(--accent);
+    border-radius:6px;color:var(--ink);font:13px var(--font-ui);padding:2px 6px;outline:none;
+  }
+  .iconBtn{
+    background:transparent;color:var(--ink-dim);padding:3px 5px;border-radius:6px;
+    font-size:12px;line-height:1;
+  }
+  .iconBtn:hover{background:rgba(255,255,255,.12);color:var(--ink)}
+  .panelRow{display:flex;gap:6px}
+  #addSceneUrl{
+    flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid transparent;
+    border-radius:8px;color:var(--ink);font:12px var(--font-data);padding:8px 10px;outline:none;
+  }
+  #addSceneUrl::placeholder{color:var(--ink-dim);font-family:var(--font-ui)}
+  #addSceneUrl:focus{border-color:var(--accent)}
+  #addSceneBtn{padding:8px 12px;font-size:12px}
+  #addMarkerBtn{width:100%;background:rgba(255,200,87,.14);color:var(--accent);border:1px solid rgba(255,200,87,.3)}
+  #addMarkerBtn:hover{background:rgba(255,200,87,.24)}
+  #addMarkerBtn.armed{background:var(--accent);color:#10131a}
+
+  /* ---------- markers on the panorama ---------- */
+  #markers{position:fixed;inset:0;z-index:8;pointer-events:none;overflow:hidden}
+  .mk{
+    position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:5px;user-select:none;
+  }
+  .mk .dot{
+    width:16px;height:16px;border-radius:50%;
+    background:rgba(255,200,87,.25);border:2px solid var(--accent);
+    box-shadow:0 0 10px rgba(255,200,87,.55);
+    transition:transform .12s;
+  }
+  .mk:hover .dot{transform:scale(1.25)}
+  .mk.linked .dot{background:var(--accent)}
+  .mk .lbl{
+    max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    background:var(--panel);border:1px solid var(--panel-edge);backdrop-filter:blur(8px);
+    border-radius:7px;padding:3px 9px;font-size:12px;
+  }
+  .mk .lbl .arrow{color:var(--accent);font-weight:700}
+
+  /* ---------- marker popup / editor ---------- */
+  #popup{
+    position:fixed;z-index:25;width:min(280px,calc(100% - 28px));
+    background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--panel-edge);border-radius:var(--radius);
+    padding:14px;display:none;flex-direction:column;gap:10px;
+  }
+  #popup.open{display:flex}
+  #popup .ptext{font-size:14px;line-height:1.45;word-break:break-word}
+  #popup .ptext.empty{color:var(--ink-dim);font-style:italic}
+  #popup input[type=text],#popup select{
+    width:100%;background:rgba(255,255,255,.07);border:1px solid var(--panel-edge);
+    border-radius:8px;color:var(--ink);font:13px var(--font-ui);padding:9px 10px;outline:none;
+  }
+  #popup input[type=text]:focus,#popup select:focus{border-color:var(--accent)}
+  #popup select option{background:#161a21;color:var(--ink)}
+  #popup label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+  #popup .row{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+  #popup .row .spacer{flex:1}
+  #goBtn{width:100%;background:var(--accent)}
+  #goBtn:hover{background:#ffd87e}
+
+  /* ---------- compass strip ---------- */
+  #compass{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    width:min(380px,56%);height:34px;z-index:9;
+    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--panel-edge);border-radius:999px;
+    overflow:hidden;user-select:none;transition:opacity .35s ease;
+  }
+  #compass.hidden{opacity:0;pointer-events:none}
+  #compassTrack{position:absolute;top:0;left:0;height:100%;will-change:transform}
+  .tick{position:absolute;top:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:3px}
+  .tick i{display:block;width:1px;background:rgba(255,255,255,.35);height:8px;margin-bottom:2px}
+  .tick.major i{height:12px;background:rgba(255,255,255,.6)}
+  .tick span{font:600 10px var(--font-data);color:var(--ink-dim);letter-spacing:.05em}
+  .tick.cardinal span{color:var(--ink)}
+  #needle{position:absolute;left:50%;top:0;width:2px;height:100%;background:var(--accent);
+    transform:translateX(-50%);box-shadow:0 0 8px rgba(255,200,87,.6)}
+  #fovBadge{
+    position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:9;
+    font:600 11px var(--font-data);color:var(--ink-dim);letter-spacing:.08em;
+    opacity:0;transition:opacity .25s;pointer-events:none;
+  }
+  #fovBadge.show{opacity:1}
+
+  /* ---------- states / toast ---------- */
+  .center{
+    position:fixed;inset:0;display:flex;flex-direction:column;gap:14px;
+    align-items:center;justify-content:center;z-index:5;pointer-events:none;text-align:center;padding:24px;
+  }
+  .center.gone{display:none}
+  .center h1{font-size:clamp(22px,4vw,34px);font-weight:600;letter-spacing:-.01em}
+  .center p{color:var(--ink-dim);font-size:14px;max-width:48ch;line-height:1.55}
+  .center .sample{pointer-events:auto}
+  .spinner{width:34px;height:34px;border-radius:50%;
+    border:3px solid rgba(255,255,255,.12);border-top-color:var(--accent);animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #errorBox{color:var(--danger);font-size:13px;max-width:52ch;line-height:1.5}
+  #toast{
+    position:fixed;top:78px;left:50%;transform:translateX(-50%) translateY(-6px);
+    background:var(--panel);border:1px solid var(--panel-edge);backdrop-filter:blur(14px);
+    border-radius:9px;padding:9px 16px;font-size:13px;z-index:40;
+    opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;max-width:calc(100% - 28px);text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast b{color:var(--accent);font-weight:600}
+
+  @media (max-width:600px){
+    .brand span{display:none}
+    button{padding:10px 11px}
+    #compass{display:none}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation-duration:.01s !important}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage"></div>
+<div id="markers"></div>
+
+<!-- top bar -->
+<div class="bar" id="bar">
+  <div class="brand" title="Orbit 360 tour builder">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffc857" stroke-width="1.8">
+      <circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/>
+    </svg>
+    <span>Orbit</span>
+  </div>
+  <input id="urlInput" type="url" spellcheck="false"
+         placeholder="Paste a 360° (equirectangular) image URL…">
+  <button id="loadBtn" title="Start a tour with this image">Load</button>
+  <button id="shareBtn" class="ghost" title="Copy a link containing the whole tour">Share tour</button>
+</div>
+
+<!-- empty state -->
+<div class="center" id="emptyState">
+  <h1>Build a walk-through, one sphere at a time</h1>
+  <p>Paste a spherical image URL above to start. Then drop markers onto the panorama — give each one a caption, link it to another 360° image, and you've built a virtual tour. Everything lives in the share link: no account, no server.</p>
+  <button class="sample ghost" id="sampleBtn">Try a sample panorama</button>
+</div>
+
+<!-- loading state -->
+<div class="center gone" id="loadingState">
+  <div class="spinner"></div>
+  <p>Loading panorama…</p>
+</div>
+
+<!-- error state -->
+<div class="center gone" id="errorState">
+  <h1>Couldn't load that image</h1>
+  <p id="errorBox"></p>
+  <button class="sample ghost" id="retryBtn">Back</button>
+</div>
+
+<!-- tour panel -->
+<button id="tourToggle" style="display:none">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3z"/><path d="M9 7v13M15 4v13"/>
+  </svg>
+  Tour <span class="count" id="sceneCount">1</span>
+</button>
+<div id="tourPanel">
+  <h2>Scenes</h2>
+  <ul id="sceneList"></ul>
+  <div class="panelRow">
+    <input id="addSceneUrl" type="url" spellcheck="false" placeholder="New scene image URL…">
+    <button id="addSceneBtn">Add</button>
+  </div>
+  <button id="addMarkerBtn">＋ Place a marker</button>
+</div>
+
+<!-- marker popup (view + edit) -->
+<div id="popup">
+  <!-- view mode -->
+  <div id="pView" style="display:none;flex-direction:column;gap:10px">
+    <div class="ptext" id="pText"></div>
+    <button id="goBtn" style="display:none"></button>
+    <div class="row">
+      <span class="spacer"></span>
+      <button class="ghost" id="pEditBtn">Edit</button>
+      <button class="ghost" id="pCloseBtn">Close</button>
+    </div>
+  </div>
+  <!-- edit mode -->
+  <div id="pEdit" style="display:none;flex-direction:column;gap:10px">
+    <div>
+      <label for="mText">Marker text</label>
+      <input type="text" id="mText" maxlength="140" placeholder="e.g. Through this door → kitchen">
+    </div>
+    <div>
+      <label for="mLink">Links to scene</label>
+      <select id="mLink"></select>
+    </div>
+    <div class="row">
+      <button class="warn" id="mDeleteBtn">Delete</button>
+      <span class="spacer"></span>
+      <button class="ghost" id="mCancelBtn">Cancel</button>
+      <button id="mSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- compass -->
+<div id="compass" class="hidden" aria-hidden="true">
+  <div id="compassTrack"></div>
+  <div id="needle"></div>
+</div>
+<div id="fovBadge">FOV 75°</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ================= DOM ================= */
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), bar = $('bar'), input = $('urlInput');
+  const markersLayer = $('markers');
+  const empty = $('emptyState'), loading = $('loadingState'), errorEl = $('errorState'), errorBox = $('errorBox');
+  const toast = $('toast');
+  const compass = $('compass'), track = $('compassTrack'), fovBadge = $('fovBadge');
+  const tourToggle = $('tourToggle'), tourPanel = $('tourPanel'), sceneList = $('sceneList'), sceneCount = $('sceneCount');
+  const addMarkerBtn = $('addMarkerBtn');
+  const popup = $('popup'), pView = $('pView'), pEdit = $('pEdit');
+
+  const SAMPLE_URL = 'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg';
+
+  /* ================= tour state =================
+     tour.s = scenes: { u:imageURL, n:name, m:[markers] }
+     marker = { x:lon, y:lat, t:text, g:targetSceneIndex|null }      */
+  const tour = { s: [] };
+  let cur = -1;                 // current scene index
+  let activeMarker = null;      // marker object popup refers to
+  let placing = false;          // marker-placement mode
+  const texCache = {};          // url -> THREE.Texture
+
+  /* ================= three.js ================= */
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1100);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  stage.appendChild(renderer.domElement);
+
+  const geometry = new THREE.SphereGeometry(500, 64, 44);
+  geometry.scale(-1, 1, 1);
+  const material = new THREE.MeshBasicMaterial({color:0x0a0c0f});
+  const sphere = new THREE.Mesh(geometry, material);
+  scene.add(sphere);
+
+  const raycaster = new THREE.Raycaster();
+
+  /* ================= navigation ================= */
+  let lon = 0, lat = 0, targetLon = 0, targetLat = 0, targetFov = 75;
+  let hasImage = false;
+  let pointerIsDown = false, moved = false;
+  let downX = 0, downY = 0, downLon = 0, downLat = 0, pinchDist = 0;
+
+  const clampLat = v => Math.max(-85, Math.min(85, v));
+  const clampFov = v => Math.max(30, Math.min(100, v));
+
+  stage.addEventListener('pointerdown', e=>{
+    if(!hasImage) return;
+    pointerIsDown = true; moved = false;
+    stage.classList.add('dragging');
+    stage.setPointerCapture(e.pointerId);
+    downX = e.clientX; downY = e.clientY;
+    downLon = targetLon; downLat = targetLat;
+  });
+  stage.addEventListener('pointermove', e=>{
+    if(!pointerIsDown) return;
+    if(Math.hypot(e.clientX-downX, e.clientY-downY) > 6) moved = true;
+    const scale = camera.fov / 600;
+    targetLon = downLon - (e.clientX - downX) * scale * 1.6;
+    targetLat = clampLat(downLat + (e.clientY - downY) * scale * 1.6);
+  });
+  stage.addEventListener('pointerup', e=>{
+    stage.classList.remove('dragging');
+    if(pointerIsDown && !moved) handleTap(e.clientX, e.clientY);
+    pointerIsDown = false;
+  });
+  stage.addEventListener('pointercancel', ()=>{ pointerIsDown=false; stage.classList.remove('dragging'); });
+
+  stage.addEventListener('wheel', e=>{
+    if(!hasImage) return;
+    e.preventDefault();
+    targetFov = clampFov(targetFov + e.deltaY * 0.04);
+    flashFov();
+  }, {passive:false});
+
+  stage.addEventListener('touchmove', e=>{
+    if(e.touches.length === 2 && hasImage){
+      e.preventDefault();
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      if(pinchDist){ targetFov = clampFov(targetFov + (pinchDist-d)*0.12); flashFov(); }
+      pinchDist = d;
+    }
+  }, {passive:false});
+  stage.addEventListener('touchend', ()=>{ pinchDist = 0; });
+
+  addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){ setPlacing(false); closePopup(); return; }
+    if(!hasImage || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    const step = camera.fov/12;
+    if(e.key==='ArrowLeft')  targetLon -= step;
+    if(e.key==='ArrowRight') targetLon += step;
+    if(e.key==='ArrowUp')    targetLat = clampLat(targetLat + step);
+    if(e.key==='ArrowDown')  targetLat = clampLat(targetLat - step);
+    if(e.key==='+'||e.key==='='){ targetFov = clampFov(targetFov-5); flashFov(); }
+    if(e.key==='-'){ targetFov = clampFov(targetFov+5); flashFov(); }
+  });
+
+  addEventListener('resize', ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  /* tap on the sphere: place a marker (in placing mode) or close popup */
+  function handleTap(cx, cy){
+    if(placing){
+      raycaster.setFromCamera(new THREE.Vector2((cx/innerWidth)*2-1, -(cy/innerHeight)*2+1), camera);
+      const hit = raycaster.intersectObject(sphere)[0];
+      if(hit){
+        const p = hit.point, r = p.length();
+        const mk = {
+          x: THREE.MathUtils.radToDeg(Math.atan2(p.z, p.x)),
+          y: 90 - THREE.MathUtils.radToDeg(Math.acos(p.y / r)),
+          t: '', g: null
+        };
+        tour.s[cur].m.push(mk);
+        setPlacing(false);
+        rebuildMarkers();
+        openPopup(mk, true);   // jump straight into the editor
+      }
+    } else {
+      closePopup();
+    }
+  }
+
+  function setPlacing(on){
+    placing = on;
+    stage.classList.toggle('placing', on);
+    addMarkerBtn.classList.toggle('armed', on);
+    addMarkerBtn.textContent = on ? 'Click the panorama… (Esc to cancel)' : '＋ Place a marker';
+    if(on) closePopup();
+  }
+
+  /* ================= markers ================= */
+  const tmpV = new THREE.Vector3();
+  const camDir = new THREE.Vector3();
+
+  function markerVec(m, out){
+    const phi = THREE.MathUtils.degToRad(90 - m.y);
+    const th  = THREE.MathUtils.degToRad(m.x);
+    return out.set(
+      490*Math.sin(phi)*Math.cos(th),
+      490*Math.cos(phi),
+      490*Math.sin(phi)*Math.sin(th)
+    );
+  }
+
+  function rebuildMarkers(){
+    markersLayer.innerHTML = '';
+    if(cur < 0) return;
+    tour.s[cur].m.forEach(mk=>{
+      const el = document.createElement('div');
+      el.className = 'mk' + (mk.g != null ? ' linked' : '');
+      const label = mk.t || (mk.g != null ? sceneName(mk.g) : 'Marker');
+      el.innerHTML = '<div class="dot"></div><div class="lbl">' +
+        (mk.g != null ? '<span class="arrow">→ </span>' : '') + escapeHtml(label) + '</div>';
+      el.addEventListener('pointerdown', e=>e.stopPropagation());
+      el.addEventListener('click', e=>{ e.stopPropagation(); openPopup(mk, false); });
+      el._mk = mk;
+      markersLayer.appendChild(el);
+    });
+    syncHash();
+  }
+
+  function updateMarkerPositions(){
+    camera.getWorldDirection(camDir);
+    for(const el of markersLayer.children){
+      markerVec(el._mk, tmpV);
+      const facing = tmpV.clone().normalize().dot(camDir) > 0.12;
+      if(!facing){ el.style.display = 'none'; continue; }
+      tmpV.project(camera);
+      el.style.display = '';
+      el.style.left = ((tmpV.x*0.5+0.5)*innerWidth) + 'px';
+      el.style.top  = ((-tmpV.y*0.5+0.5)*innerHeight) + 'px';
+      if(activeMarker === el._mk && popup.classList.contains('open')) positionPopup(el);
+    }
+  }
+
+  /* ================= popup (view/edit) ================= */
+  const pText = $('pText'), goBtn = $('goBtn');
+  const mText = $('mText'), mLink = $('mLink');
+
+  function openPopup(mk, editMode){
+    activeMarker = mk;
+    popup.classList.add('open');
+    pView.style.display = editMode ? 'none' : 'flex';
+    pEdit.style.display = editMode ? 'flex' : 'none';
+    if(editMode){
+      mText.value = mk.t || '';
+      mLink.innerHTML = '<option value="">No link</option>' +
+        tour.s.map((s,i)=> i===cur ? '' :
+          `<option value="${i}" ${mk.g===i?'selected':''}>${escapeHtml(sceneName(i))}</option>`).join('');
+      setTimeout(()=>mText.focus(), 0);
+    } else {
+      pText.textContent = mk.t || 'Untitled marker';
+      pText.classList.toggle('empty', !mk.t);
+      if(mk.g != null && tour.s[mk.g]){
+        goBtn.style.display = '';
+        goBtn.textContent = 'Go to ' + sceneName(mk.g);
+      } else goBtn.style.display = 'none';
+    }
+    updateMarkerPositions();
+  }
+
+  function positionPopup(markerEl){
+    const r = markerEl.getBoundingClientRect();
+    let x = r.left + r.width/2 - popup.offsetWidth/2;
+    let y = r.bottom + 10;
+    x = Math.max(10, Math.min(innerWidth - popup.offsetWidth - 10, x));
+    if(y + popup.offsetHeight > innerHeight - 10) y = r.top - popup.offsetHeight - 10;
+    popup.style.left = x + 'px';
+    popup.style.top  = Math.max(10, y) + 'px';
+  }
+
+  function closePopup(){ popup.classList.remove('open'); activeMarker = null; }
+
+  goBtn.addEventListener('click', ()=>{ if(activeMarker && activeMarker.g != null){ closePopup(); loadScene(activeMarker.g); } });
+  $('pEditBtn').addEventListener('click', ()=> openPopup(activeMarker, true));
+  $('pCloseBtn').addEventListener('click', closePopup);
+  $('mCancelBtn').addEventListener('click', ()=>{
+    // brand-new empty marker cancelled → remove it
+    if(activeMarker && !activeMarker.t && activeMarker.g == null){
+      const arr = tour.s[cur].m, i = arr.indexOf(activeMarker);
+      if(i > -1) arr.splice(i,1);
+      rebuildMarkers();
+    }
+    closePopup();
+  });
+  $('mSaveBtn').addEventListener('click', ()=>{
+    if(!activeMarker) return;
+    activeMarker.t = mText.value.trim();
+    activeMarker.g = mLink.value === '' ? null : +mLink.value;
+    rebuildMarkers();
+    closePopup();
+  });
+  $('mDeleteBtn').addEventListener('click', ()=>{
+    const arr = tour.s[cur].m, i = arr.indexOf(activeMarker);
+    if(i > -1) arr.splice(i,1);
+    rebuildMarkers();
+    closePopup();
+  });
+  mText.addEventListener('keydown', e=>{ if(e.key==='Enter') $('mSaveBtn').click(); });
+
+  /* ================= scenes ================= */
+  function sceneName(i){ return tour.s[i] ? (tour.s[i].n || 'Scene ' + (i+1)) : '?'; }
+
+  function addScene(url, andLoad = true){
+    url = (url||'').trim();
+    if(!validUrl(url)) return;
+    tour.s.push({u:url, n:'', m:[]});
+    refreshPanel();
+    if(andLoad) loadScene(tour.s.length - 1);
+    else syncHash();
+  }
+
+  function deleteScene(i){
+    tour.s.splice(i,1);
+    tour.s.forEach(s=>s.m.forEach(mk=>{
+      if(mk.g === i) mk.g = null;
+      else if(mk.g > i) mk.g--;
+    }));
+    if(!tour.s.length){
+      cur = -1; hasImage = false;
+      material.map = null; material.color.set(0x0a0c0f); material.needsUpdate = true;
+      markersLayer.innerHTML = '';
+      compass.classList.add('hidden');
+      tourToggle.style.display = 'none';
+      tourPanel.classList.remove('open');
+      show(empty);
+      history.replaceState(null,'',location.pathname);
+      return;
+    }
+    if(cur === i) loadScene(Math.max(0, i-1));
+    else { if(cur > i) cur--; refreshPanel(); syncHash(); }
+  }
+
+  function refreshPanel(){
+    sceneCount.textContent = tour.s.length;
+    sceneList.innerHTML = '';
+    tour.s.forEach((s,i)=>{
+      const li = document.createElement('li');
+      if(i===cur) li.classList.add('active');
+      li.innerHTML = `<span class="num">${i+1}</span><span class="nm">${escapeHtml(sceneName(i))}</span>`;
+      li.addEventListener('click', ()=>{ if(i!==cur) loadScene(i); });
+
+      const ren = document.createElement('button');
+      ren.className='iconBtn'; ren.title='Rename'; ren.textContent='✎';
+      ren.addEventListener('click', e=>{
+        e.stopPropagation();
+        const nm = li.querySelector('.nm');
+        nm.innerHTML = '';
+        const inp = document.createElement('input');
+        inp.value = s.n || '';
+        inp.placeholder = 'Scene ' + (i+1);
+        nm.appendChild(inp); inp.focus(); inp.select();
+        const commit = ()=>{ s.n = inp.value.trim(); refreshPanel(); rebuildMarkers(); };
+        inp.addEventListener('blur', commit);
+        inp.addEventListener('keydown', ev=>{ if(ev.key==='Enter') inp.blur(); if(ev.key==='Escape'){ inp.value=s.n||''; inp.blur(); } });
+        inp.addEventListener('click', ev=>ev.stopPropagation());
+      });
+
+      const del = document.createElement('button');
+      del.className='iconBtn'; del.title='Delete scene'; del.textContent='✕';
+      del.addEventListener('click', e=>{ e.stopPropagation(); deleteScene(i); });
+
+      li.appendChild(ren); li.appendChild(del);
+      sceneList.appendChild(li);
+    });
+  }
+
+  /* ================= loading ================= */
+  function validUrl(url){
+    try{ const p = new URL(url); return /^https?:$/.test(p.protocol); }
+    catch{ showToast('That doesn\u2019t look like a valid URL.'); return false; }
+  }
+
+  function loadScene(i){
+    const sc = tour.s[i];
+    if(!sc) return;
+    closePopup(); setPlacing(false);
+
+    const apply = tex=>{
+      material.map = tex;
+      material.color.set(0xffffff);
+      material.needsUpdate = true;
+      hasImage = true;
+      cur = i;
+      targetLon = lon = 0; targetLat = lat = 0; targetFov = 75;
+      show(null);
+      compass.classList.remove('hidden');
+      tourToggle.style.display = '';
+      input.value = sc.u;
+      refreshPanel();
+      rebuildMarkers();
+    };
+
+    if(texCache[sc.u]){ apply(texCache[sc.u]); return; }
+
+    show(loading);
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(sc.u,
+      tex=>{ tex.minFilter = THREE.LinearFilter; texCache[sc.u] = tex; apply(tex); },
+      undefined,
+      ()=>{
+        errorBox.textContent = 'Scene ' + (i+1) + ' could not be fetched. The URL may not be a direct image link, or the host blocks cross-origin (CORS) access. Try a direct .jpg/.png link from a host that permits embedding (e.g. Wikimedia Commons).';
+        show(errorEl);
+      });
+  }
+
+  function show(el){ [empty, loading, errorEl].forEach(x=>x.classList.add('gone')); if(el) el.classList.remove('gone'); }
+
+  /* ================= URL persistence ================= */
+  function syncHash(){
+    if(!tour.s.length) return;
+    const data = LZString.compressToEncodedURIComponent(JSON.stringify({s:tour.s, a:Math.max(0,cur)}));
+    history.replaceState(null, '', location.pathname + '#t=' + data);
+  }
+
+  function shareTour(){
+    if(!tour.s.length){ showToast('Load an image first, then share.'); return; }
+    syncHash();
+    const link = location.origin + location.pathname + '#t=' +
+      LZString.compressToEncodedURIComponent(JSON.stringify({s:tour.s, a:Math.max(0,cur)}));
+    const n = tour.s.length;
+    const done = ()=> showToast('<b>Tour link copied</b> — ' + n + ' scene' + (n>1?'s':'') + ', markers and all, packed into the URL.');
+    if(navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(link).then(done).catch(()=>fallbackCopy(link, done));
+    else fallbackCopy(link, done);
+  }
+
+  function fallbackCopy(text, done){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }
+    catch{ prompt('Copy this link:', text); }
+    ta.remove();
+  }
+
+  /* ================= compass / fov ================= */
+  const PX_PER_DEG = 2.4;
+  (function buildCompass(){
+    const cardinals = {0:'N',90:'E',180:'S',270:'W'};
+    for(let d=-360; d<720; d+=15){
+      const norm = ((d%360)+360)%360;
+      const t = document.createElement('div');
+      t.className = 'tick' + (norm%90===0 ? ' major cardinal' : norm%45===0 ? ' major' : '');
+      t.style.left = (d*PX_PER_DEG)+'px';
+      t.appendChild(document.createElement('i'));
+      if(norm%45===0){
+        const s=document.createElement('span');
+        s.textContent = cardinals[norm] || norm+'°';
+        t.appendChild(s);
+      }
+      track.appendChild(t);
+    }
+  })();
+  function updateCompass(){
+    const heading = ((lon%360)+360)%360;
+    track.style.transform = `translateX(${compass.clientWidth/2 - heading*PX_PER_DEG}px)`;
+  }
+  let fovTimer;
+  function flashFov(){
+    fovBadge.textContent = 'FOV ' + Math.round(targetFov) + '°';
+    fovBadge.classList.add('show');
+    clearTimeout(fovTimer);
+    fovTimer = setTimeout(()=>fovBadge.classList.remove('show'), 900);
+  }
+
+  /* ================= toast / autohide ================= */
+  let toastTimer;
+  function showToast(html){
+    toast.innerHTML = html;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'), 3000);
+  }
+
+  let hideTimer;
+  function wake(){
+    bar.classList.remove('hidden');
+    clearTimeout(hideTimer);
+    if(hasImage && document.activeElement !== input && !placing && !popup.classList.contains('open') && !tourPanel.classList.contains('open'))
+      hideTimer = setTimeout(()=>bar.classList.add('hidden'), 4000);
+  }
+  ['pointermove','pointerdown','keydown','wheel','touchstart'].forEach(ev=>addEventListener(ev, wake, {passive:true}));
+  input.addEventListener('focus', wake);
+
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /* ================= render loop ================= */
+  function animate(){
+    requestAnimationFrame(animate);
+    lon += (targetLon-lon)*0.12;
+    lat += (targetLat-lat)*0.12;
+    camera.fov += (targetFov-camera.fov)*0.12;
+    camera.updateProjectionMatrix();
+    const phi = THREE.MathUtils.degToRad(90-lat);
+    const th  = THREE.MathUtils.degToRad(lon);
+    camera.lookAt(500*Math.sin(phi)*Math.cos(th), 500*Math.cos(phi), 500*Math.sin(phi)*Math.sin(th));
+    if(hasImage){ updateCompass(); updateMarkerPositions(); }
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  /* ================= wiring ================= */
+  $('loadBtn').addEventListener('click', ()=>{
+    const url = input.value.trim();
+    if(!validUrl(url)) return;
+    if(tour.s.length && tour.s[cur] && tour.s[cur].u === url) return;
+    if(!tour.s.length) addScene(url);
+    else addScene(url); // every Load appends a scene; delete unwanted ones from the panel
+  });
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') $('loadBtn').click(); });
+  $('sampleBtn').addEventListener('click', ()=> addScene(SAMPLE_URL));
+  $('retryBtn').addEventListener('click', ()=>{ tour.s.length ? loadScene(Math.max(0,cur)) : show(empty); });
+  $('shareBtn').addEventListener('click', shareTour);
+  tourToggle.addEventListener('click', ()=> tourPanel.classList.toggle('open'));
+  $('addSceneBtn').addEventListener('click', ()=>{
+    addScene($('addSceneUrl').value);
+    $('addSceneUrl').value = '';
+  });
+  $('addSceneUrl').addEventListener('keydown', e=>{ if(e.key==='Enter') $('addSceneBtn').click(); });
+  addMarkerBtn.addEventListener('click', ()=> setPlacing(!placing));
+
+  /* ================= boot ================= */
+  (function boot(){
+    const h = location.hash.match(/t=([^&]+)/);
+    if(h){
+      try{
+        const d = JSON.parse(LZString.decompressFromEncodedURIComponent(h[1]));
+        if(d && Array.isArray(d.s) && d.s.length){
+          tour.s = d.s.map(s=>({u:String(s.u||''), n:String(s.n||''), m:Array.isArray(s.m) ? s.m.map(m=>({
+            x:+m.x||0, y:+m.y||0, t:String(m.t||''), g:(m.g==null?null:+m.g)
+          })) : []}));
+          refreshPanel();
+          loadScene(Math.min(+d.a||0, tour.s.length-1));
+          return;
+        }
+      }catch(e){ showToast('Couldn\u2019t read the tour data in this link.'); }
+    }
+    const legacy = new URLSearchParams(location.search).get('img');
+    if(legacy){ history.replaceState(null,'',location.pathname); addScene(legacy); return; }
+    wake();
+  })();
+})();
+</script>
+</body>
+</html>
