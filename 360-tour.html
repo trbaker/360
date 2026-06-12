@@ -179,6 +179,17 @@
   }
   #fovBadge.show{opacity:1}
 
+  /* ---------- VR button ---------- */
+  #vrBtn{
+    position:fixed;right:14px;bottom:14px;z-index:30;
+    display:none;align-items:center;gap:8px;
+    background:var(--panel);color:var(--ink);border:1px solid var(--panel-edge);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-radius:999px;padding:9px 16px;font-size:13px;
+  }
+  #vrBtn:hover{background:rgba(255,255,255,.12)}
+  #vrBtn svg{flex:none}
+
   /* ---------- states / toast ---------- */
   .center{
     position:fixed;inset:0;display:flex;flex-direction:column;gap:14px;
@@ -314,6 +325,14 @@
 </div>
 <div id="fovBadge">FOV 75°</div>
 
+<!-- VR entry (appears only on WebXR-capable devices, e.g. Meta Quest Browser) -->
+<button id="vrBtn" title="View this tour in your headset">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffc857" stroke-width="1.8">
+    <path d="M2.5 9.5A2.5 2.5 0 0 1 5 7h14a2.5 2.5 0 0 1 2.5 2.5v4A2.5 2.5 0 0 1 19 16h-3.2l-1.7-1.9a2.8 2.8 0 0 0-4.2 0L8.2 16H5a2.5 2.5 0 0 1-2.5-2.5z"/>
+  </svg>
+  <span>Enter VR</span>
+</button>
+
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -350,6 +369,7 @@
   const renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;
   stage.appendChild(renderer.domElement);
 
   const geometry = new THREE.SphereGeometry(500, 64, 44);
@@ -484,6 +504,7 @@
       el._mk = mk;
       markersLayer.appendChild(el);
     });
+    if(typeof buildVRMarkers === 'function' && xrSession) buildVRMarkers();
     syncHash();
   }
 
@@ -500,6 +521,136 @@
       if(activeMarker === el._mk && popup.classList.contains('open')) positionPopup(el);
     }
   }
+
+  /* ================= VR (WebXR) ================= */
+  const vrBtn = $('vrBtn');
+  let xrSession = null;
+
+  /* 3D stand-ins for the HTML markers, used inside the headset */
+  const vrMarkers = new THREE.Group();
+  vrMarkers.visible = false;
+  scene.add(vrMarkers);
+
+  function makeLabelTexture(text){
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    const font = '600 40px sans-serif';
+    ctx.font = font;
+    const w = Math.ceil(Math.min(620, Math.max(140, ctx.measureText(text).width + 70)));
+    c.width = w; c.height = 88;
+    ctx.font = font;
+    ctx.fillStyle = 'rgba(16,19,24,0.88)';
+    const r = 22;
+    ctx.beginPath();
+    ctx.moveTo(r,2); ctx.lineTo(w-r,2); ctx.quadraticCurveTo(w-2,2,w-2,r);
+    ctx.lineTo(w-2,88-r); ctx.quadraticCurveTo(w-2,86,w-r,86);
+    ctx.lineTo(r,86); ctx.quadraticCurveTo(2,86,2,88-r);
+    ctx.lineTo(2,r); ctx.quadraticCurveTo(2,2,r,2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#eef1f4';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, w/2, 46);
+    const tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    return {tex, aspect: w/88};
+  }
+
+  function buildVRMarkers(){
+    while(vrMarkers.children.length){
+      const g = vrMarkers.children[0];
+      g.traverse(o=>{
+        if(o.geometry) o.geometry.dispose();
+        if(o.material){ if(o.material.map) o.material.map.dispose(); o.material.dispose(); }
+      });
+      vrMarkers.remove(g);
+    }
+    if(cur < 0) return;
+    tour.s[cur].m.forEach(mk=>{
+      const g = new THREE.Group();
+      markerVec(mk, tmpV);
+      g.position.copy(tmpV);
+      g.lookAt(0, 0, 0);
+      g.userData.mk = mk;
+
+      const linked = mk.g != null;
+      g.add(new THREE.Mesh(
+        new THREE.RingGeometry(8, 12, 32),
+        new THREE.MeshBasicMaterial({color:0xffc857, side:THREE.DoubleSide})));
+      g.add(new THREE.Mesh(
+        new THREE.CircleGeometry(8, 32),
+        new THREE.MeshBasicMaterial({color:0xffc857, transparent:true, opacity:linked?0.9:0.3, side:THREE.DoubleSide})));
+      // generous invisible hit target for controller rays
+      const hit = new THREE.Mesh(
+        new THREE.CircleGeometry(28, 16),
+        new THREE.MeshBasicMaterial({visible:false, side:THREE.DoubleSide}));
+      g.add(hit);
+
+      const text = (linked ? '\u2192 ' : '') + (mk.t || (linked ? sceneName(mk.g) : 'Marker'));
+      const {tex, aspect} = makeLabelTexture(text.slice(0, 48));
+      const h = 22;
+      const lbl = new THREE.Mesh(
+        new THREE.PlaneGeometry(h*aspect, h),
+        new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide}));
+      lbl.position.y = -26;
+      g.add(lbl);
+
+      vrMarkers.add(g);
+    });
+  }
+
+  /* controllers: pull the trigger while pointing at a marker to follow its link */
+  const tempMatrix = new THREE.Matrix4();
+  const ctrlRays = [];
+  function onXRSelect(e){
+    const c = e.target;
+    tempMatrix.identity().extractRotation(c.matrixWorld);
+    raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld);
+    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+    const hits = raycaster.intersectObjects(vrMarkers.children, true);
+    if(!hits.length) return;
+    let o = hits[0].object;
+    while(o && !o.userData.mk) o = o.parent;
+    if(o && o.userData.mk && o.userData.mk.g != null) loadScene(o.userData.mk.g);
+  }
+  for(let i = 0; i < 2; i++){
+    const c = renderer.xr.getController(i);
+    c.addEventListener('select', onXRSelect);
+    const ray = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]),
+      new THREE.LineBasicMaterial({color:0xffc857, transparent:true, opacity:0.7}));
+    ray.scale.z = 60;
+    ray.visible = false;
+    c.add(ray);
+    ctrlRays.push(ray);
+    scene.add(c);
+  }
+
+  function setVRPresent(on){
+    vrMarkers.visible = on;
+    ctrlRays.forEach(r=>r.visible = on);
+    vrBtn.querySelector('span').textContent = on ? 'Exit VR' : 'Enter VR';
+  }
+
+  if(navigator.xr && navigator.xr.isSessionSupported){
+    navigator.xr.isSessionSupported('immersive-vr')
+      .then(ok=>{ if(ok) vrBtn.style.display = 'flex'; })
+      .catch(()=>{});
+  }
+  vrBtn.addEventListener('click', ()=>{
+    if(xrSession){ xrSession.end(); return; }
+    if(!hasImage){ showToast('Load a panorama first, then enter VR.'); return; }
+    closePopup(); setPlacing(false);
+    navigator.xr.requestSession('immersive-vr', {optionalFeatures:['local-floor']})
+      .then(session=>{
+        xrSession = session;
+        renderer.xr.setSession(session);
+        buildVRMarkers();
+        setVRPresent(true);
+        session.addEventListener('end', ()=>{ xrSession = null; setVRPresent(false); });
+      })
+      .catch(err=> showToast('Couldn\u2019t start VR: ' + escapeHtml(err.message || String(err))));
+  });
 
   /* ================= popup (view/edit) ================= */
   const pText = $('pText'), pDesc = $('pDesc'), goBtn = $('goBtn');
@@ -778,7 +929,11 @@
 
   /* ================= render loop ================= */
   function animate(){
-    requestAnimationFrame(animate);
+    if(renderer.xr.isPresenting){
+      // headset drives the camera; desktop controls pause
+      renderer.render(scene, camera);
+      return;
+    }
     lon += (targetLon-lon)*0.12;
     lat += (targetLat-lat)*0.12;
     camera.fov += (targetFov-camera.fov)*0.12;
@@ -789,7 +944,7 @@
     if(hasImage){ updateCompass(); updateMarkerPositions(); }
     renderer.render(scene, camera);
   }
-  animate();
+  renderer.setAnimationLoop(animate);
 
   /* ================= wiring ================= */
   $('loadBtn').addEventListener('click', ()=>{
