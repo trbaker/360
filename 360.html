@@ -8,7 +8,7 @@
   :root{
     --ink:#eef1f4;
     --ink-dim:#9aa3ad;
-    --panel:rgba(16,19,24,.72);
+    --panel:rgba(16,19,24,.78);
     --panel-edge:rgba(255,255,255,.08);
     --accent:#ffc857;
     --danger:#ff6b6b;
@@ -24,18 +24,15 @@
   /* ---------- top control bar ---------- */
   .bar{
     position:fixed;top:16px;left:50%;transform:translateX(-50%);
-    width:min(680px,calc(100% - 24px));
+    width:min(720px,calc(100% - 24px));
     display:flex;gap:8px;align-items:center;
     background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border:1px solid var(--panel-edge);border-radius:var(--radius);
-    padding:8px;z-index:10;transition:opacity .35s ease, transform .35s ease;
+    padding:8px;z-index:30;transition:opacity .35s ease, transform .35s ease;
   }
   .bar.hidden{opacity:0;transform:translateX(-50%) translateY(-8px);pointer-events:none}
-  .brand{
-    display:flex;align-items:center;gap:7px;padding:0 6px 0 8px;
-    font-weight:600;letter-spacing:.04em;font-size:14px;white-space:nowrap;user-select:none;
-  }
-  .brand svg{flex:none}
+  .brand{display:flex;align-items:center;gap:7px;padding:0 6px 0 8px;
+    font-weight:600;letter-spacing:.04em;font-size:14px;white-space:nowrap;user-select:none}
   #urlInput{
     flex:1;min-width:0;background:rgba(255,255,255,.06);
     border:1px solid transparent;border-radius:9px;
@@ -46,71 +43,91 @@
   #urlInput:focus{border-color:var(--accent)}
   button{
     border:0;border-radius:9px;padding:10px 14px;font:600 13px var(--font-ui);
-    cursor:pointer;color:#10131a;background:var(--ink);transition:transform .1s, background .15s;
-    white-space:nowrap;
+    cursor:pointer;color:#10131a;background:var(--accent);
+    transition:filter .15s, transform .05s;white-space:nowrap;
   }
-  button:hover{background:#fff}
-  button:active{transform:scale(.96)}
+  button:hover{filter:brightness(1.06)}
+  button:active{transform:translateY(1px)}
   button.ghost{background:rgba(255,255,255,.08);color:var(--ink)}
-  button.ghost:hover{background:rgba(255,255,255,.16)}
-  button:focus-visible,#urlInput:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.ghost:hover{background:rgba(255,255,255,.14)}
 
-  /* ---------- compass strip (signature) ---------- */
-  #compass{
-    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
-    width:min(420px,70%);height:34px;z-index:10;
-    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    border:1px solid var(--panel-edge);border-radius:999px;
-    overflow:hidden;user-select:none;
-    transition:opacity .35s ease;
-  }
-  #compass.hidden{opacity:0;pointer-events:none}
-  #compassTrack{position:absolute;top:0;left:0;height:100%;will-change:transform}
-  .tick{position:absolute;top:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:3px}
-  .tick i{display:block;width:1px;background:rgba(255,255,255,.35);height:8px;margin-bottom:2px}
-  .tick.major i{height:12px;background:rgba(255,255,255,.6)}
-  .tick span{font:600 10px var(--font-data);color:var(--ink-dim);letter-spacing:.05em}
-  .tick.cardinal span{color:var(--ink)}
-  #needle{
-    position:absolute;left:50%;top:0;width:2px;height:100%;
-    background:var(--accent);transform:translateX(-50%);
-    box-shadow:0 0 8px rgba(255,200,87,.6);
-  }
-  #fovBadge{
-    position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:10;
-    font:600 11px var(--font-data);color:var(--ink-dim);letter-spacing:.08em;
-    opacity:0;transition:opacity .25s;pointer-events:none;
-  }
-  #fovBadge.show{opacity:1}
-
-  /* ---------- status / empty / error ---------- */
+  /* ---------- centered states ---------- */
   .center{
     position:fixed;inset:0;display:flex;flex-direction:column;gap:14px;
     align-items:center;justify-content:center;z-index:5;pointer-events:none;text-align:center;padding:24px;
   }
   .center.gone{display:none}
   .center h1{font-size:clamp(22px,4vw,34px);font-weight:600;letter-spacing:-.01em}
-  .center p{color:var(--ink-dim);font-size:14px;max-width:46ch;line-height:1.55}
+  .center p{color:var(--ink-dim);font-size:14px;max-width:48ch;line-height:1.55}
   .center .sample{pointer-events:auto}
-  .spinner{
-    width:34px;height:34px;border-radius:50%;
-    border:3px solid rgba(255,255,255,.12);border-top-color:var(--accent);
-    animation:spin .8s linear infinite;
-  }
+  .spinner{width:34px;height:34px;border-radius:50%;
+    border:3px solid rgba(255,255,255,.12);border-top-color:var(--accent);animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   #errorBox{color:var(--danger);font-size:13px;max-width:52ch;line-height:1.5}
+
+  /* ---------- compass ---------- */
+  #compass{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    width:min(420px,calc(100% - 40px));height:34px;overflow:hidden;
+    background:var(--panel);border:1px solid var(--panel-edge);
+    border-radius:10px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    z-index:20;transition:opacity .35s ease;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);
+  }
+  #compass.hidden{opacity:0}
+  #compassTrack{position:absolute;top:0;left:50%;height:100%;will-change:transform}
+  .tick{position:absolute;top:0;height:100%;display:flex;align-items:center;justify-content:center;
+    transform:translateX(-50%);font:11px/1 var(--font-data);color:var(--ink-dim)}
+  .tick.card{color:var(--ink);font-weight:600;font-size:12px}
+  .tick.card.NS{color:var(--accent)}
+  #needle{position:absolute;top:0;left:50%;width:2px;height:100%;
+    transform:translateX(-50%);background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  #fovBadge{
+    position:fixed;bottom:62px;left:50%;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--panel-edge);
+    border-radius:8px;padding:5px 10px;font:11px/1 var(--font-data);color:var(--ink-dim);
+    z-index:20;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    opacity:0;transition:opacity .3s ease;pointer-events:none;
+  }
+  #fovBadge.show{opacity:1}
+
+  /* ---------- shared-view promo link ---------- */
+  #promo{
+    position:fixed;bottom:16px;right:16px;z-index:25;display:none;
+    font:500 12px var(--font-ui);color:var(--ink-dim);text-decoration:none;white-space:nowrap;
+    background:var(--panel);border:1px solid var(--panel-edge);
+    border-radius:8px;padding:6px 11px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    transition:color .15s, border-color .15s;
+  }
+  #promo:hover{color:var(--accent);border-color:var(--accent)}
+
+  /* ---------- enter-VR button ---------- */
+  #vrBtn{
+    position:fixed;bottom:16px;left:16px;z-index:25;
+    display:none;align-items:center;gap:7px;
+    background:var(--panel);color:var(--ink);border:1px solid var(--panel-edge);
+    border-radius:10px;padding:9px 14px;font:600 13px var(--font-ui);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  }
+  #vrBtn:hover{border-color:var(--accent);color:var(--accent)}
+  #vrBtn::before{
+    content:"";width:16px;height:11px;border-radius:5px;
+    border:2px solid currentColor;display:inline-block;
+  }
 
   /* ---------- toast ---------- */
   #toast{
     position:fixed;top:78px;left:50%;transform:translateX(-50%) translateY(-6px);
     background:var(--panel);border:1px solid var(--panel-edge);backdrop-filter:blur(14px);
-    border-radius:9px;padding:9px 16px;font-size:13px;z-index:20;
-    opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;
+    border-radius:9px;padding:9px 16px;font-size:13px;z-index:40;
+    opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;max-width:calc(100% - 28px);text-align:center;
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   #toast b{color:var(--accent);font-weight:600}
 
-  @media (max-width:560px){
+  @media (max-width:600px){
     .brand span{display:none}
     button{padding:10px 11px}
   }
@@ -125,7 +142,7 @@
 
 <!-- top bar -->
 <div class="bar" id="bar">
-  <div class="brand" title="Orbit 360 viewer">
+  <div class="brand" title="Orbit 360° viewer">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffc857" stroke-width="1.8">
       <circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/>
     </svg>
@@ -133,21 +150,23 @@
   </div>
   <input id="urlInput" type="url" spellcheck="false"
          placeholder="Paste a 360° (equirectangular) image URL…">
-  <button id="loadBtn">Load</button>
-  <button id="shareBtn" class="ghost" title="Copy a link that opens this image">Share</button>
+  <button id="loadBtn" title="Load this panorama">Load</button>
+  <button id="shareBtn" class="ghost" title="Copy a link to this view">Share</button>
 </div>
 
 <!-- empty state -->
 <div class="center" id="emptyState">
-  <h1>Step inside a photo</h1>
-  <p>Paste the URL of any spherical (equirectangular) image above, then drag to look around and scroll to zoom. The Share button gives you a link that opens straight into the same view.</p>
+  <h1>Look around inside any 360° photo</h1>
+  <p>Paste a direct link to an equirectangular image above, then drag to look around,
+     scroll or pinch to zoom, and use the arrow keys to pan. The Share button gives you
+     a link that opens straight into the same view.</p>
   <button class="sample ghost" id="sampleBtn">Try a sample panorama</button>
 </div>
 
 <!-- loading state -->
 <div class="center gone" id="loadingState">
   <div class="spinner"></div>
-  <p id="loadingText">Loading panorama…</p>
+  <p>Loading panorama…</p>
 </div>
 
 <!-- error state -->
@@ -157,12 +176,16 @@
   <button class="sample ghost" id="retryBtn">Try again</button>
 </div>
 
-<!-- compass -->
+<!-- compass + fov -->
 <div id="compass" class="hidden" aria-hidden="true">
   <div id="compassTrack"></div>
   <div id="needle"></div>
 </div>
 <div id="fovBadge">FOV 75°</div>
+
+<a id="promo" href="https://trbaker.github.io/360/360.html" target="_blank" rel="noopener">Share my 360 images</a>
+
+<button id="vrBtn" style="display:none">Enter VR</button>
 
 <div id="toast"></div>
 
@@ -172,21 +195,22 @@
   "use strict";
 
   /* ---------------- DOM ---------------- */
-  const stage   = document.getElementById('stage');
-  const bar     = document.getElementById('bar');
-  const input   = document.getElementById('urlInput');
-  const loadBtn = document.getElementById('loadBtn');
-  const shareBtn= document.getElementById('shareBtn');
-  const sampleBtn=document.getElementById('sampleBtn');
-  const retryBtn= document.getElementById('retryBtn');
-  const empty   = document.getElementById('emptyState');
-  const loading = document.getElementById('loadingState');
-  const errorEl = document.getElementById('errorState');
-  const errorBox= document.getElementById('errorBox');
-  const toast   = document.getElementById('toast');
-  const compass = document.getElementById('compass');
-  const track   = document.getElementById('compassTrack');
-  const fovBadge= document.getElementById('fovBadge');
+  const stage    = document.getElementById('stage');
+  const bar      = document.getElementById('bar');
+  const input    = document.getElementById('urlInput');
+  const loadBtn  = document.getElementById('loadBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  const sampleBtn= document.getElementById('sampleBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const empty    = document.getElementById('emptyState');
+  const loading  = document.getElementById('loadingState');
+  const errorEl  = document.getElementById('errorState');
+  const errorBox = document.getElementById('errorBox');
+  const toast    = document.getElementById('toast');
+  const compass  = document.getElementById('compass');
+  const track    = document.getElementById('compassTrack');
+  const fovBadge = document.getElementById('fovBadge');
+  const vrBtn    = document.getElementById('vrBtn');
 
   const SAMPLE_URL = 'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg';
 
@@ -196,181 +220,208 @@
   const renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;             // allow immersive VR sessions
   stage.appendChild(renderer.domElement);
 
   const geometry = new THREE.SphereGeometry(500, 64, 44);
-  geometry.scale(-1, 1, 1); // view from inside
+  geometry.scale(-1, 1, 1);               // turn the sphere inside-out
   const material = new THREE.MeshBasicMaterial({color:0x0a0c0f});
-  const sphere = new THREE.Mesh(geometry, material);
+  const sphere   = new THREE.Mesh(geometry, material);
   scene.add(sphere);
 
-  /* ---------------- navigation state ---------------- */
-  let lon = 0, lat = 0;            // current view angles (deg)
-  let targetLon = 0, targetLat = 0;
-  let targetFov = 75;
+  const target = new THREE.Vector3();
+
+  /* ---------------- view state ---------------- */
+  let lon = 0,  lat = 0;            // smoothed (rendered) angles
+  let targetLon = 0, targetLat = 0; // where we're easing toward
+  let fov = 75,  targetFov = 75;
   let hasImage = false;
+  let currentURL = '';
+  let sharedMode = false;     // true when opened from a ?img= share link
+  let vrSupported = false;    // true when an immersive-vr device is available
 
-  let pointerDown = false;
-  let downX = 0, downY = 0, downLon = 0, downLat = 0;
-  let pinchDist = 0;
+  const clampLat = v => Math.max(-85, Math.min(85, v));
+  const clampFov = v => Math.max(30, Math.min(100, v));
 
-  function clampLat(v){ return Math.max(-85, Math.min(85, v)); }
-  function clampFov(v){ return Math.max(30, Math.min(100, v)); }
+  /* ---------------- pointer drag ---------------- */
+  let pointerDown = false, downX = 0, downY = 0, downLon = 0, downLat = 0;
+  const activePointers = new Map();
+  let pinchStart = 0, pinchFov = 75;
 
-  /* drag — mouse + touch via pointer events */
   stage.addEventListener('pointerdown', e=>{
     if(!hasImage) return;
-    pointerDown = true;
-    stage.classList.add('dragging');
-    stage.setPointerCapture(e.pointerId);
-    downX = e.clientX; downY = e.clientY;
-    downLon = targetLon; downLat = targetLat;
-  });
-  stage.addEventListener('pointermove', e=>{
-    if(!pointerDown) return;
-    const scale = camera.fov / 600; // slower drag when zoomed in
-    targetLon = downLon - (e.clientX - downX) * scale * 1.6;
-    targetLat = clampLat(downLat + (e.clientY - downY) * scale * 1.6);
-  });
-  function endDrag(){ pointerDown = false; stage.classList.remove('dragging'); }
-  stage.addEventListener('pointerup', endDrag);
-  stage.addEventListener('pointercancel', endDrag);
-
-  /* wheel zoom */
-  stage.addEventListener('wheel', e=>{
-    if(!hasImage) return;
-    e.preventDefault();
-    targetFov = clampFov(targetFov + e.deltaY * 0.04);
-    flashFov();
-  }, {passive:false});
-
-  /* pinch zoom */
-  stage.addEventListener('touchmove', e=>{
-    if(e.touches.length === 2 && hasImage){
-      e.preventDefault();
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const d  = Math.hypot(dx, dy);
-      if(pinchDist) { targetFov = clampFov(targetFov + (pinchDist - d) * 0.12); flashFov(); }
-      pinchDist = d;
+    activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(activePointers.size === 1){
+      pointerDown = true;
+      stage.classList.add('dragging');
+      downX = e.clientX; downY = e.clientY;
+      downLon = targetLon; downLat = targetLat;
+    } else if(activePointers.size === 2){
+      pointerDown = false;
+      const pts = [...activePointers.values()];
+      pinchStart = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      pinchFov = targetFov;
     }
-  }, {passive:false});
-  stage.addEventListener('touchend', ()=>{ pinchDist = 0; });
+  });
 
-  /* keyboard navigation */
+  stage.addEventListener('pointermove', e=>{
+    if(!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+
+    if(activePointers.size >= 2){
+      const pts = [...activePointers.values()];
+      const dist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      if(pinchStart > 0){
+        targetFov = clampFov(pinchFov * (pinchStart / dist));
+        showFov();
+      }
+      return;
+    }
+    if(!pointerDown) return;
+    const speed = 0.1 * (targetFov / 75);   // slower when zoomed in
+    targetLon = downLon - (e.clientX - downX) * speed;
+    targetLat = clampLat(downLat + (e.clientY - downY) * speed);
+  });
+
+  function endPointer(e){
+    activePointers.delete(e.pointerId);
+    if(activePointers.size < 2) pinchStart = 0;
+    if(activePointers.size === 0){
+      pointerDown = false;
+      stage.classList.remove('dragging');
+    }
+  }
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+  stage.addEventListener('pointerleave', endPointer);
+
+  /* ---------------- wheel zoom ---------------- */
+  addEventListener('wheel', e=>{
+    if(!hasImage) return;
+    targetFov = clampFov(targetFov + e.deltaY * 0.05);
+    showFov();
+  }, {passive:true});
+
+  /* ---------------- keyboard ---------------- */
   addEventListener('keydown', e=>{
-    if(!hasImage || e.target === input) return;
-    const step = camera.fov / 12;
-    if(e.key === 'ArrowLeft')  targetLon -= step;
-    if(e.key === 'ArrowRight') targetLon += step;
-    if(e.key === 'ArrowUp')    targetLat = clampLat(targetLat + step);
-    if(e.key === 'ArrowDown')  targetLat = clampLat(targetLat - step);
-    if(e.key === '+' || e.key === '='){ targetFov = clampFov(targetFov - 5); flashFov(); }
-    if(e.key === '-'){ targetFov = clampFov(targetFov + 5); flashFov(); }
+    if(!hasImage || document.activeElement === input) return;
+    const step = 4 * (targetFov / 75);
+    switch(e.key){
+      case 'ArrowLeft':  targetLon -= step; break;
+      case 'ArrowRight': targetLon += step; break;
+      case 'ArrowUp':    targetLat = clampLat(targetLat + step); break;
+      case 'ArrowDown':  targetLat = clampLat(targetLat - step); break;
+      case '+': case '=': targetFov = clampFov(targetFov - 5); showFov(); break;
+      case '-': case '_': targetFov = clampFov(targetFov + 5); showFov(); break;
+      default: return;
+    }
+    e.preventDefault();
   });
 
-  addEventListener('resize', ()=>{
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
-
-  /* ---------------- compass strip ---------------- */
+  /* ---------------- compass ---------------- */
   const PX_PER_DEG = 2.4;
   (function buildCompass(){
-    const cardinals = {0:'N',90:'E',180:'S',270:'W'};
-    // build 3 copies (-360..720) so the strip can scroll seamlessly
-    for(let d = -360; d < 720; d += 15){
-      const norm = ((d % 360) + 360) % 360;
-      const t = document.createElement('div');
-      t.className = 'tick' + (norm % 90 === 0 ? ' major cardinal' : norm % 45 === 0 ? ' major' : '');
-      t.style.left = (d * PX_PER_DEG) + 'px';
-      const bar = document.createElement('i');
-      t.appendChild(bar);
-      if(norm % 45 === 0){
-        const s = document.createElement('span');
-        s.textContent = cardinals[norm] || norm + '°';
-        t.appendChild(s);
+    const cards = {0:'N',45:'NE',90:'E',135:'SE',180:'S',225:'SW',270:'W',315:'NW'};
+    // build a wide strip so panning never reveals an empty edge
+    for(let h = -360; h <= 720; h += 15){
+      const norm = ((h % 360) + 360) % 360;
+      const tick = document.createElement('div');
+      tick.className = 'tick';
+      tick.style.left = (h * PX_PER_DEG) + 'px';
+      if(cards[norm]){
+        tick.textContent = cards[norm];
+        tick.classList.add('card');
+        if(norm === 0 || norm === 180) tick.classList.add('NS');
+      } else {
+        tick.textContent = '·';
       }
-      track.appendChild(t);
+      track.appendChild(tick);
     }
   })();
   function updateCompass(){
     const heading = ((lon % 360) + 360) % 360;
-    const center = compass.clientWidth / 2;
-    track.style.transform = `translateX(${center - heading * PX_PER_DEG}px)`;
+    track.style.transform = 'translateX(' + (-heading * PX_PER_DEG) + 'px)';
   }
 
+  /* ---------------- fov badge ---------------- */
   let fovTimer;
-  function flashFov(){
+  function showFov(){
     fovBadge.textContent = 'FOV ' + Math.round(targetFov) + '°';
     fovBadge.classList.add('show');
     clearTimeout(fovTimer);
-    fovTimer = setTimeout(()=>fovBadge.classList.remove('show'), 900);
+    fovTimer = setTimeout(()=> fovBadge.classList.remove('show'), 1100);
   }
 
   /* ---------------- render loop ---------------- */
   function animate(){
-    requestAnimationFrame(animate);
-    // smooth easing toward targets
-    lon += (targetLon - lon) * 0.12;
-    lat += (targetLat - lat) * 0.12;
-    camera.fov += (targetFov - camera.fov) * 0.12;
-    camera.updateProjectionMatrix();
+    // While presenting in VR, WebXR owns the camera pose (head tracking),
+    // so we leave the camera alone and just render.
+    if(!renderer.xr.isPresenting){
+      lon += (targetLon - lon) * 0.12;
+      lat += (targetLat - lat) * 0.12;
+      fov += (targetFov - fov) * 0.14;
 
-    const phi   = THREE.MathUtils.degToRad(90 - lat);
-    const theta = THREE.MathUtils.degToRad(lon);
-    camera.lookAt(
-      500 * Math.sin(phi) * Math.cos(theta),
-      500 * Math.cos(phi),
-      500 * Math.sin(phi) * Math.sin(theta)
-    );
-    if(hasImage) updateCompass();
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+
+      const phi   = THREE.MathUtils.degToRad(90 - lat);
+      const theta = THREE.MathUtils.degToRad(lon);
+      target.x = 500 * Math.sin(phi) * Math.cos(theta);
+      target.y = 500 * Math.cos(phi);
+      target.z = 500 * Math.sin(phi) * Math.sin(theta);
+      camera.lookAt(target);
+
+      if(hasImage) updateCompass();
+    }
     renderer.render(scene, camera);
   }
-  animate();
+  renderer.setAnimationLoop(animate);   // works for both flat and XR rendering
 
-  /* ---------------- states ---------------- */
-  function show(el){ [empty, loading, errorEl].forEach(x=>x.classList.add('gone')); if(el) el.classList.remove('gone'); }
+  addEventListener('resize', ()=>{
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
 
-  /* ---------------- image loading ---------------- */
-  let currentURL = null;
+  /* ---------------- state helpers ---------------- */
+  function show(el){
+    [empty, loading, errorEl].forEach(s => s.classList.add('gone'));
+    if(el) el.classList.remove('gone');
+    const viewing = (el === null);
+    compass.classList.toggle('hidden', !viewing);
+  }
 
+  /* ---------------- load a panorama ---------------- */
   function loadPanorama(url){
     url = (url || '').trim();
-    if(!url) return;
-    let parsed;
-    try { parsed = new URL(url); } catch { showError('That doesn\u2019t look like a valid URL. It should start with https://'); return; }
-    if(!/^https?:$/.test(parsed.protocol)){ showError('Only http(s) image URLs are supported.'); return; }
+    if(!url){ showToast('Paste an image URL first.'); input.focus(); return; }
 
-    input.value = url;
     show(loading);
-    compass.classList.add('hidden');
-
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
-    loader.load(url,
+    loader.load(
+      url,
       tex => {
-        tex.minFilter = THREE.LinearFilter;
-        if(material.map) material.map.dispose();
+        tex.colorSpace = THREE.SRGBColorSpace;   // r128 fallback handled below
+        if(tex.encoding !== undefined) tex.encoding = THREE.sRGBEncoding;
         material.map = tex;
         material.color.set(0xffffff);
         material.needsUpdate = true;
+
         hasImage = true;
         currentURL = url;
-        targetLon = lon = 0; targetLat = lat = 0; targetFov = 75;
-        show(null);
-        compass.classList.remove('hidden');
-        // reflect in address bar so refresh keeps the image
-        const q = new URLSearchParams(location.search);
-        q.set('img', url);
+        input.value = url;
+        show(null);                              // viewing
+        if(vrSupported) vrBtn.style.display = 'inline-flex';
+        // keep the address bar in sync so refresh / copy works
+        const q = new URLSearchParams(); q.set('img', url);
         history.replaceState(null, '', location.pathname + '?' + q.toString());
       },
       undefined,
       () => showError(
         'The image could not be fetched. Common causes: the URL isn\u2019t a direct image link, ' +
-        'or the host doesn\u2019t allow cross-origin (CORS) access. Try a direct link ending in .jpg/.png ' +
-        'from a host that permits embedding (e.g. Wikimedia Commons).'
+        'or the host doesn\u2019t allow cross-origin (CORS) access. Try a direct link ending in ' +
+        '.jpg/.png from a host that permits embedding (e.g. Wikimedia Commons).'
       )
     );
   }
@@ -404,12 +455,13 @@
     toast.innerHTML = html;
     toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>toast.classList.remove('show'), 2600);
+    toastTimer = setTimeout(()=> toast.classList.remove('show'), 2600);
   }
 
-  /* ---------------- UI auto-hide while idle over the scene ---------------- */
+  /* ---------------- auto-hide the bar while viewing ---------------- */
   let hideTimer;
   function wake(){
+    if(sharedMode) return;     // no toolbar for share-link viewers
     bar.classList.remove('hidden');
     clearTimeout(hideTimer);
     if(hasImage && document.activeElement !== input){
@@ -427,10 +479,54 @@
   retryBtn.addEventListener('click', ()=>{ show(empty); input.focus(); });
   shareBtn.addEventListener('click', shareLink);
 
-  /* boot: read ?img= from the URL */
+  /* ---------------- WebXR (immersive VR) ---------------- */
+  function setupVR(){
+    if(!('xr' in navigator) || !navigator.xr.isSessionSupported) return;
+    navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
+      if(!ok) return;            // no headset → button stays hidden
+      vrSupported = true;
+      if(hasImage) vrBtn.style.display = 'inline-flex';
+
+      let xrSession = null;
+
+      vrBtn.addEventListener('click', async ()=>{
+        if(xrSession){ xrSession.end(); return; }
+        try{
+          xrSession = await navigator.xr.requestSession('immersive-vr', {
+            optionalFeatures:['local-floor','bounded-floor']
+          });
+        }catch(err){
+          showToast('Couldn\u2019t start VR: ' + (err && err.message ? err.message : 'session refused'));
+          xrSession = null; return;
+        }
+
+        // carry the current heading into VR so you start facing roughly where you were looking
+        sphere.rotation.y = THREE.MathUtils.degToRad(lon) + Math.PI/2;
+
+        renderer.xr.setReferenceSpaceType('local');
+        await renderer.xr.setSession(xrSession);
+        vrBtn.textContent = 'Exit VR';
+
+        xrSession.addEventListener('end', ()=>{
+          xrSession = null;
+          vrBtn.textContent = 'Enter VR';
+          // restore the flat-viewer state
+          sphere.rotation.y = 0;
+          camera.position.set(0, 0, 0);
+        });
+      });
+    }).catch(()=>{ /* WebXR query failed → leave button hidden */ });
+  }
+  setupVR();
+
+  /* ---------------- boot: read ?img= from the URL ---------------- */
   const param = new URLSearchParams(location.search).get('img');
-  if(param) loadPanorama(param);
-  else wake();
+  if(param){
+    sharedMode = true;
+    bar.style.display = 'none';   // remove the Orbit header for shared views
+    document.getElementById('promo').style.display = 'block';
+    loadPanorama(param);
+  } else wake();
 })();
 </script>
 </body>
