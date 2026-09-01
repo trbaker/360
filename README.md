@@ -4,8 +4,8 @@ Two self-contained, single-file web apps for viewing and sharing 360° (equirect
 
 | App | File | Open it |
 |---|---|---|
-| **360 Viewer** — view and share a single panorama | [`360.html`](360.html) | [Launch ▶](https://USERNAME.github.io/REPO/360.html) |
-| **Orbit Tour Builder** — link multiple panoramas into a virtual tour | [`tour.html`](tour.html) | [Launch ▶](https://USERNAME.github.io/REPO/tour.html) |
+| **360 Viewer** — view and share a single panorama | [`360.html`](360.html) | [Launch ▶](360.html) |
+| **Orbit Tour Builder** — link multiple panoramas into a virtual tour | [`tour.html`](tour.html) | [Launch ▶](tour.html) |
 
 > Replace `USERNAME` and `REPO` above with your GitHub username and repository name, and enable **GitHub Pages** (Settings → Pages → deploy from the main branch) so the "Launch" links work.
 
