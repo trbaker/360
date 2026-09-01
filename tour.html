@@ -106,6 +106,7 @@
   #addMarkerBtn{width:100%;background:rgba(255,200,87,.14);color:var(--accent);border:1px solid rgba(255,200,87,.3)}
   #addMarkerBtn:hover{background:rgba(255,200,87,.24)}
   #addMarkerBtn.armed{background:var(--accent);color:#10131a}
+  #setViewBtn{width:100%;font-size:12px}
 
   /* ---------- markers on the panorama ---------- */
   #markers{position:fixed;inset:0;z-index:8;pointer-events:none;overflow:hidden}
@@ -288,6 +289,7 @@
     <button id="addSceneBtn">Add</button>
   </div>
   <button id="addMarkerBtn">＋ Place a marker</button>
+  <button id="setViewBtn" class="ghost" title="Visitors entering this scene will start looking exactly where you're looking now">⌖ Save current view as start</button>
 </div>
 
 <!-- marker popup (view + edit) -->
@@ -847,19 +849,39 @@
     else { if(cur > i) cur--; refreshPanel(); syncHash(); }
   }
 
+  function moveScene(i, dir){
+    const j = i + dir;
+    if(j < 0 || j >= tour.s.length) return;
+    [tour.s[i], tour.s[j]] = [tour.s[j], tour.s[i]];
+    // marker links point at indices — swap them to follow their scenes
+    tour.s.forEach(s=>s.m.forEach(mk=>{
+      if(mk.g === i) mk.g = j;
+      else if(mk.g === j) mk.g = i;
+    }));
+    if(cur === i) cur = j; else if(cur === j) cur = i;
+    refreshPanel();
+    rebuildMarkers();   // labels may reference renumbered scene names; also syncs the URL
+  }
+
   function refreshPanel(){
     sceneCount.textContent = tour.s.length;
     sceneList.innerHTML = '';
+    const iconBtn = (txt, title, fn)=>{
+      const b = document.createElement('button');
+      b.className = 'iconBtn'; b.title = title; b.textContent = txt;
+      b.addEventListener('click', e=>{ e.stopPropagation(); fn(); });
+      return b;
+    };
     tour.s.forEach((s,i)=>{
       const li = document.createElement('li');
       if(i===cur) li.classList.add('active');
       li.innerHTML = `<span class="num">${i+1}</span><span class="nm">${escapeHtml(sceneName(i))}</span>`;
       li.addEventListener('click', ()=>{ if(i!==cur) loadScene(i); });
 
-      const ren = document.createElement('button');
-      ren.className='iconBtn'; ren.title='Rename'; ren.textContent='✎';
-      ren.addEventListener('click', e=>{
-        e.stopPropagation();
+      if(i > 0)               li.appendChild(iconBtn('↑', 'Move up',   ()=>moveScene(i,-1)));
+      if(i < tour.s.length-1) li.appendChild(iconBtn('↓', 'Move down', ()=>moveScene(i, 1)));
+
+      const ren = iconBtn('✎', 'Rename', ()=>{
         const nm = li.querySelector('.nm');
         nm.innerHTML = '';
         const inp = document.createElement('input');
@@ -871,10 +893,7 @@
         inp.addEventListener('keydown', ev=>{ if(ev.key==='Enter') inp.blur(); if(ev.key==='Escape'){ inp.value=s.n||''; inp.blur(); } });
         inp.addEventListener('click', ev=>ev.stopPropagation());
       });
-
-      const del = document.createElement('button');
-      del.className='iconBtn'; del.title='Delete scene'; del.textContent='✕';
-      del.addEventListener('click', e=>{ e.stopPropagation(); deleteScene(i); });
+      const del = iconBtn('✕', 'Delete scene', ()=>deleteScene(i));
 
       li.appendChild(ren); li.appendChild(del);
       sceneList.appendChild(li);
@@ -899,7 +918,10 @@
       hasImage = true;
       cur = i;
       applyLevels();
-      targetLon = lon = 0; targetLat = lat = 0; targetFov = 75;
+      targetLon = lon = (sc.v ? +sc.v[0] : 0) || 0;
+      targetLat = lat = clampLat((sc.v ? +sc.v[1] : 0) || 0);
+      targetFov = (sc.v && sc.v[2]) ? clampFov(+sc.v[2]) : 75;
+      camera.fov = targetFov;
       show(null);
       tourToggle.style.display = '';
       input.value = sc.u;
@@ -1026,6 +1048,16 @@
   });
   $('addSceneUrl').addEventListener('keydown', e=>{ if(e.key==='Enter') $('addSceneBtn').click(); });
   addMarkerBtn.addEventListener('click', ()=> setPlacing(!placing));
+  $('setViewBtn').addEventListener('click', ()=>{
+    if(cur < 0) return;
+    tour.s[cur].v = [
+      Math.round((((targetLon % 360) + 360) % 360) * 10) / 10,
+      Math.round(clampLat(targetLat) * 10) / 10,
+      Math.round(clampFov(targetFov))
+    ];
+    syncHash();
+    showToast('<b>Start view saved</b> — visitors will enter ' + escapeHtml(sceneName(cur)) + ' facing this way.');
+  });
   $('fxBtn').addEventListener('click', ()=>{
     autoEnhance = !autoEnhance;
     $('fxBtn').classList.toggle('on', autoEnhance);
@@ -1047,7 +1079,9 @@
           autoEnhance = d.e !== 0;
           $('fxBtn').classList.toggle('on', autoEnhance);
           $('fxBtn').setAttribute('aria-pressed', autoEnhance);
-          tour.s = d.s.map(s=>({u:String(s.u||''), n:String(s.n||''), m:Array.isArray(s.m) ? s.m.map(m=>({
+          tour.s = d.s.map(s=>({u:String(s.u||''), n:String(s.n||''),
+            v:(Array.isArray(s.v) && s.v.length >= 2) ? [+s.v[0]||0, +s.v[1]||0, +s.v[2]||75] : undefined,
+            m:Array.isArray(s.m) ? s.m.map(m=>({
             x:+m.x||0, y:+m.y||0, t:String(m.t||'').slice(0,140), d:cleanDesc(m.d), g:(m.g==null?null:+m.g)
           })) : []}));
           refreshPanel();
