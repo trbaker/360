@@ -52,11 +52,14 @@
   button.ghost{background:rgba(255,255,255,.08);color:var(--ink)}
   button.ghost:hover{background:rgba(255,255,255,.16)}
   button.warn{background:transparent;color:var(--danger);padding:8px 10px}
+  #fxBtn{padding:10px 11px;display:flex;align-items:center;color:var(--ink-dim)}
+  #fxBtn.on{color:var(--accent);background:rgba(255,200,87,.12)}
+  #fxBtn.on:hover{background:rgba(255,200,87,.2)}
   button:focus-visible,#urlInput:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
   /* ---------- tour panel ---------- */
   #tourToggle{
-    position:fixed;left:14px;bottom:14px;z-index:30;
+    position:fixed;left:58px;bottom:14px;z-index:30;
     background:var(--panel);color:var(--ink);border:1px solid var(--panel-edge);
     backdrop-filter:blur(14px);border-radius:999px;padding:9px 16px;
     display:flex;align-items:center;gap:7px;font-size:13px;
@@ -155,29 +158,33 @@
   #goBtn{width:100%;background:var(--accent)}
   #goBtn:hover{background:#ffd87e}
 
-  /* ---------- compass strip ---------- */
-  #compass{
-    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
-    width:min(380px,56%);height:34px;z-index:9;
-    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    border:1px solid var(--panel-edge);border-radius:999px;
-    overflow:hidden;user-select:none;transition:opacity .35s ease;
-  }
-  #compass.hidden{opacity:0;pointer-events:none}
-  #compassTrack{position:absolute;top:0;left:0;height:100%;will-change:transform}
-  .tick{position:absolute;top:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:3px}
-  .tick i{display:block;width:1px;background:rgba(255,255,255,.35);height:8px;margin-bottom:2px}
-  .tick.major i{height:12px;background:rgba(255,255,255,.6)}
-  .tick span{font:600 10px var(--font-data);color:var(--ink-dim);letter-spacing:.05em}
-  .tick.cardinal span{color:var(--ink)}
-  #needle{position:absolute;left:50%;top:0;width:2px;height:100%;background:var(--accent);
-    transform:translateX(-50%);box-shadow:0 0 8px rgba(255,200,87,.6)}
+  /* ---------- fov badge ---------- */
   #fovBadge{
-    position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:9;
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9;
     font:600 11px var(--font-data);color:var(--ink-dim);letter-spacing:.08em;
     opacity:0;transition:opacity .25s;pointer-events:none;
   }
   #fovBadge.show{opacity:1}
+
+  /* ---------- help button ---------- */
+  #helpBtn{
+    position:fixed;left:14px;bottom:14px;z-index:30;
+    width:36px;height:36px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--panel);border:1px solid var(--panel-edge);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    color:var(--ink-dim);text-decoration:none;
+    font:600 15px var(--font-ui);user-select:none;
+    transition:color .15s, background .15s;
+  }
+  #helpBtn:hover{color:var(--accent);background:rgba(255,255,255,.12)}
+  #helpBtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---------- viewing (shared-link) mode: chrome hidden ---------- */
+  body.view .bar{display:none !important}
+  body.view #tourToggle{display:none !important}
+  body.view #tourPanel{display:none !important}
+  body.view #pEditBtn{display:none}
 
   /* ---------- VR button ---------- */
   #vrBtn{
@@ -215,7 +222,6 @@
   @media (max-width:600px){
     .brand span{display:none}
     button{padding:10px 11px}
-    #compass{display:none}
   }
   @media (prefers-reduced-motion: reduce){
     *{transition:none !important;animation-duration:.01s !important}
@@ -238,6 +244,12 @@
   <input id="urlInput" type="url" spellcheck="false"
          placeholder="Paste a 360° (equirectangular) image URL…">
   <button id="loadBtn" title="Start a tour with this image">Load</button>
+  <button id="fxBtn" class="ghost on" title="Auto brightness &amp; contrast" aria-pressed="true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>
+    </svg>
+  </button>
   <button id="shareBtn" class="ghost" title="Copy a link containing the whole tour">Share tour</button>
 </div>
 
@@ -318,11 +330,8 @@
   </div>
 </div>
 
-<!-- compass -->
-<div id="compass" class="hidden" aria-hidden="true">
-  <div id="compassTrack"></div>
-  <div id="needle"></div>
-</div>
+<!-- help -->
+<a id="helpBtn" href="https://trbaker.github.io/360/" target="_blank" rel="noopener" title="About this 360° viewer">?</a>
 <div id="fovBadge">FOV 75°</div>
 
 <!-- VR entry (appears only on WebXR-capable devices, e.g. Meta Quest Browser) -->
@@ -347,7 +356,7 @@
   const markersLayer = $('markers');
   const empty = $('emptyState'), loading = $('loadingState'), errorEl = $('errorState'), errorBox = $('errorBox');
   const toast = $('toast');
-  const compass = $('compass'), track = $('compassTrack'), fovBadge = $('fovBadge');
+  const fovBadge = $('fovBadge');
   const tourToggle = $('tourToggle'), tourPanel = $('tourPanel'), sceneList = $('sceneList'), sceneCount = $('sceneCount');
   const addMarkerBtn = $('addMarkerBtn');
   const popup = $('popup'), pView = $('pView'), pEdit = $('pEdit');
@@ -374,9 +383,74 @@
 
   const geometry = new THREE.SphereGeometry(500, 64, 44);
   geometry.scale(-1, 1, 1);
-  const material = new THREE.MeshBasicMaterial({color:0x0a0c0f});
+  /* custom material so brightness/contrast is applied per-pixel on the GPU */
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      map:     {value: null},
+      uScale:  {value: 1},   // contrast (range stretch)
+      uOffset: {value: 0},   // brightness (black-point shift)
+      uHasMap: {value: 0}
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform sampler2D map;
+      uniform float uScale, uOffset, uHasMap;
+      varying vec2 vUv;
+      void main(){
+        if(uHasMap < 0.5){ gl_FragColor = vec4(0.039, 0.047, 0.059, 1.0); return; }
+        vec4 c = texture2D(map, vUv);
+        c.rgb = clamp(c.rgb * uScale + uOffset, 0.0, 1.0);
+        gl_FragColor = c;
+      }`,
+    side: THREE.DoubleSide
+  });
   const sphere = new THREE.Mesh(geometry, material);
   scene.add(sphere);
+
+  /* ---- auto levels: sample the image, find 1st/99th percentile luminance ---- */
+  let autoEnhance = true;
+  let targScale = 1, targOffset = 0;
+  const levelCache = {};   // url -> {scale, offset}
+
+  function computeLevels(img, url){
+    if(levelCache[url]) return levelCache[url];
+    let out = {scale: 1, offset: 0};
+    try{
+      const w = 160, h = 80;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d', {willReadFrequently: true});
+      ctx.drawImage(img, 0, 0, w, h);
+      const d = ctx.getImageData(0, 0, w, h).data;
+      const hist = new Uint32Array(256);
+      for(let i = 0; i < d.length; i += 4)
+        hist[(d[i]*0.2126 + d[i+1]*0.7152 + d[i+2]*0.0722) | 0]++;
+      const clip = w * h * 0.01;              // ignore extreme 1% at each end
+      let lo = 0, acc = 0;
+      while(lo < 255 && acc + hist[lo] < clip){ acc += hist[lo]; lo++; }
+      let hi = 255; acc = 0;
+      while(hi > 0 && acc + hist[hi] < clip){ acc += hist[hi]; hi--; }
+      // only adjust when the tonal range is genuinely compressed
+      if(hi - lo >= 8 && (lo > 10 || hi < 245)){
+        const scale = Math.min(255 / (hi - lo), 1.6);   // capped: enhance, don't distort
+        out = {scale, offset: -(lo / 255) * scale};
+      }
+    }catch(e){ /* sampling failed (e.g. tainted canvas) → leave image untouched */ }
+    levelCache[url] = out;
+    return out;
+  }
+
+  function applyLevels(){
+    const sc = tour.s[cur];
+    const lv = (autoEnhance && sc && levelCache[sc.u]) ? levelCache[sc.u] : {scale: 1, offset: 0};
+    targScale = lv.scale;
+    targOffset = lv.offset;
+  }
 
   const raycaster = new THREE.Raycaster();
 
@@ -759,9 +833,10 @@
     }));
     if(!tour.s.length){
       cur = -1; hasImage = false;
-      material.map = null; material.color.set(0x0a0c0f); material.needsUpdate = true;
+      material.uniforms.map.value = null;
+      material.uniforms.uHasMap.value = 0;
+      targScale = 1; targOffset = 0;
       markersLayer.innerHTML = '';
-      compass.classList.add('hidden');
       tourToggle.style.display = 'none';
       tourPanel.classList.remove('open');
       show(empty);
@@ -818,14 +893,14 @@
     closePopup(); setPlacing(false);
 
     const apply = tex=>{
-      material.map = tex;
-      material.color.set(0xffffff);
-      material.needsUpdate = true;
+      material.uniforms.map.value = tex;
+      material.uniforms.uHasMap.value = 1;
+      computeLevels(tex.image, sc.u);
       hasImage = true;
       cur = i;
+      applyLevels();
       targetLon = lon = 0; targetLat = lat = 0; targetFov = 75;
       show(null);
-      compass.classList.remove('hidden');
       tourToggle.style.display = '';
       input.value = sc.u;
       refreshPanel();
@@ -849,17 +924,21 @@
   function show(el){ [empty, loading, errorEl].forEach(x=>x.classList.add('gone')); if(el) el.classList.remove('gone'); }
 
   /* ================= URL persistence ================= */
+  /* Shared links open in clean viewing mode. The author's own session keeps
+     an "&edit" flag in the hash so refreshing never locks them out. */
+  let viewMode = false;
+
   function syncHash(){
     if(!tour.s.length) return;
-    const data = LZString.compressToEncodedURIComponent(JSON.stringify({s:tour.s, a:Math.max(0,cur)}));
-    history.replaceState(null, '', location.pathname + '#t=' + data);
+    const data = LZString.compressToEncodedURIComponent(JSON.stringify({s:tour.s, a:Math.max(0,cur), e:autoEnhance?1:0}));
+    history.replaceState(null, '', location.pathname + '#t=' + data + (viewMode ? '' : '&edit'));
   }
 
   function shareTour(){
     if(!tour.s.length){ showToast('Load an image first, then share.'); return; }
     syncHash();
     const link = location.origin + location.pathname + '#t=' +
-      LZString.compressToEncodedURIComponent(JSON.stringify({s:tour.s, a:Math.max(0,cur)}));
+      LZString.compressToEncodedURIComponent(JSON.stringify({s:tour.s, a:Math.max(0,cur), e:autoEnhance?1:0}));
     const n = tour.s.length;
     const done = ()=> showToast('<b>Tour link copied</b> — ' + n + ' scene' + (n>1?'s':'') + ', markers and all, packed into the URL.');
     if(navigator.clipboard && navigator.clipboard.writeText)
@@ -876,28 +955,7 @@
     ta.remove();
   }
 
-  /* ================= compass / fov ================= */
-  const PX_PER_DEG = 2.4;
-  (function buildCompass(){
-    const cardinals = {0:'N',90:'E',180:'S',270:'W'};
-    for(let d=-360; d<720; d+=15){
-      const norm = ((d%360)+360)%360;
-      const t = document.createElement('div');
-      t.className = 'tick' + (norm%90===0 ? ' major cardinal' : norm%45===0 ? ' major' : '');
-      t.style.left = (d*PX_PER_DEG)+'px';
-      t.appendChild(document.createElement('i'));
-      if(norm%45===0){
-        const s=document.createElement('span');
-        s.textContent = cardinals[norm] || norm+'°';
-        t.appendChild(s);
-      }
-      track.appendChild(t);
-    }
-  })();
-  function updateCompass(){
-    const heading = ((lon%360)+360)%360;
-    track.style.transform = `translateX(${compass.clientWidth/2 - heading*PX_PER_DEG}px)`;
-  }
+  /* ================= fov badge ================= */
   let fovTimer;
   function flashFov(){
     fovBadge.textContent = 'FOV ' + Math.round(targetFov) + '°';
@@ -929,6 +987,9 @@
 
   /* ================= render loop ================= */
   function animate(){
+    // ease brightness/contrast toward targets (applies in VR too)
+    material.uniforms.uScale.value  += (targScale  - material.uniforms.uScale.value)  * 0.08;
+    material.uniforms.uOffset.value += (targOffset - material.uniforms.uOffset.value) * 0.08;
     if(renderer.xr.isPresenting){
       // headset drives the camera; desktop controls pause
       renderer.render(scene, camera);
@@ -941,7 +1002,7 @@
     const phi = THREE.MathUtils.degToRad(90-lat);
     const th  = THREE.MathUtils.degToRad(lon);
     camera.lookAt(500*Math.sin(phi)*Math.cos(th), 500*Math.cos(phi), 500*Math.sin(phi)*Math.sin(th));
-    if(hasImage){ updateCompass(); updateMarkerPositions(); }
+    if(hasImage) updateMarkerPositions();
     renderer.render(scene, camera);
   }
   renderer.setAnimationLoop(animate);
@@ -965,14 +1026,27 @@
   });
   $('addSceneUrl').addEventListener('keydown', e=>{ if(e.key==='Enter') $('addSceneBtn').click(); });
   addMarkerBtn.addEventListener('click', ()=> setPlacing(!placing));
+  $('fxBtn').addEventListener('click', ()=>{
+    autoEnhance = !autoEnhance;
+    $('fxBtn').classList.toggle('on', autoEnhance);
+    $('fxBtn').setAttribute('aria-pressed', autoEnhance);
+    applyLevels();
+    syncHash();
+    showToast(autoEnhance ? '<b>Auto enhance on</b> — levels tuned per scene.' : 'Auto enhance off — showing original image.');
+  });
 
   /* ================= boot ================= */
   (function boot(){
     const h = location.hash.match(/t=([^&]+)/);
     if(h){
+      viewMode = !/&edit\b/.test(location.hash);
+      if(viewMode) document.body.classList.add('view');
       try{
         const d = JSON.parse(LZString.decompressFromEncodedURIComponent(h[1]));
         if(d && Array.isArray(d.s) && d.s.length){
+          autoEnhance = d.e !== 0;
+          $('fxBtn').classList.toggle('on', autoEnhance);
+          $('fxBtn').setAttribute('aria-pressed', autoEnhance);
           tour.s = d.s.map(s=>({u:String(s.u||''), n:String(s.n||''), m:Array.isArray(s.m) ? s.m.map(m=>({
             x:+m.x||0, y:+m.y||0, t:String(m.t||'').slice(0,140), d:cleanDesc(m.d), g:(m.g==null?null:+m.g)
           })) : []}));
@@ -981,6 +1055,8 @@
           return;
         }
       }catch(e){ showToast('Couldn\u2019t read the tour data in this link.'); }
+      viewMode = false;
+      document.body.classList.remove('view');
     }
     const legacy = new URLSearchParams(location.search).get('img');
     if(legacy){ history.replaceState(null,'',location.pathname); addScene(legacy); return; }
